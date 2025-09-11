@@ -95,6 +95,8 @@ Truy cập:
 * Airflow: [http://localhost:8080](http://localhost:8080)
 * Nessie REST: [http://localhost:19120/api/v2](http://localhost:19120/api/v2)
 
+---
+
 ## Data layout (S3 paths)
 
 * **Bronze**: `s3a://lakehouse/bronze/health_care_raw/ingest_dt=YYYY-MM-DD/*.csv|*.parquet`
@@ -324,7 +326,7 @@ models:
 
 ## Lộ trình mở rộng
 
-* Thêm **Kafka** + Schema Registry (ingest streaming) → Silver bằng Spark Structured Streaming. (a Đạt bảo dell hiệu quả nên có cc =)  
+* Thêm **Kafka** + Schema Registry (ingest streaming) → Silver bằng Spark Structured Streaming. (a Đạt bảo dell hiệu quả lắm nên có cc =)  
 * **Great Expectations** kiểm thử dữ liệu tự động trước khi nhập Gold.
 * **BI**: Kết nối Superset/Metabase vào Trino (schema `gold`).
 * **Perf**: Optimize sort order, clustering, Z‑order (tuỳ engine), compaction lịch tuần.
@@ -350,7 +352,7 @@ models:
 ~/coder/projects/package_github/Health_Care_Linux/airflow$ docker compose up -d
 ```
 
-## Result (Lười chụp vai lz)
+## Result (Lười chụp vai lz update gold sau)
 
 - Airflow:
 
