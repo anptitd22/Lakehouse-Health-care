@@ -33,7 +33,9 @@ MinIO + Apache Iceberg (catalog Project Nessie) + Spark 3.5 + Trino 463 + Airflo
 ---
 ## Ảnh tổng quan
 
-<img width="547" height="623" alt="image" src="https://github.com/user-attachments/assets/c15adf01-d2cf-4548-b465-b6659e27e1cc" />
+<div align="center">
+  <img width="680" height="772" alt="image" src="https://github.com/user-attachments/assets/051325c4-1e1a-4db1-858d-9dcc9bda595e" />
+</div>
 
 ## Thành phần & cổng dịch vụ
 
