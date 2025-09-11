@@ -50,6 +50,7 @@ MinIO + Apache Iceberg (catalog Project Nessie) + Spark 3.5 + Trino 463 + Airflo
 | Airflow 3.0        | `apache/airflow:3.0.0`                             | `8080`        | Webserver/API                     |
 
 > Lưu ý: Nếu chạy **2 Postgres** riêng rẽ, đảm bảo **khác cổng/volume** để tránh xung đột.
+> 
 > All containers join the same Docker network: lakehouse_network.
 ---
 
@@ -59,6 +60,19 @@ MinIO + Apache Iceberg (catalog Project Nessie) + Spark 3.5 + Trino 463 + Airflo
 
 * Docker & Docker Compose
 * Python 3.10+ (để chạy dbt‑spark)
+* install library trong requirements.txt
+* Create network:
+
+```bash
+docker network create lakehouse_network
+```
+
+*) Peter check (thiếu thì đúng david óc):
+
+```bash
+docker network ls
+docker network inspect lakehouse_net
+```
 
 ### 2) Biến môi trường (`.env` ở root và airflow ví dụ)
 
