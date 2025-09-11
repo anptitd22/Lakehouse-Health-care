@@ -100,7 +100,11 @@ POSTGRES_DB=airflow
 ### 3) Khởi chạy
 
 ```bash
-docker compose up -d
+# main project
+~/coder/projects/package_github/Health_Care_Linux$ docker compose up -d 
+
+# airflow
+~/coder/projects/package_github/Health_Care_Linux/airflow$ docker compose up -d
 ```
 
 Truy cập:
@@ -232,6 +236,12 @@ s3.aws-secret-key={YOUR_SECRET}
 ```
 
 Ví dụ truy vấn:
+
+* Vào container trino 
+
+```bash
+docker exec -it trino trino
+```
 
 ```sql
 SHOW SCHEMAS FROM iceberg;

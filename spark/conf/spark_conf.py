@@ -4,7 +4,7 @@ from pyspark.sql import SparkSession
 import os
 
 def get_spark():
-    # JAR mới cần thêm (KHÔNG xoá JAR cũ)
+    # JAR iceberg
     iceberg_runtime = "/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar"
     iceberg_aws_bundle = "/opt/spark/jars/iceberg-aws-bundle-1.9.2.jar"
     iceberg_nessie = "/opt/spark/jars/iceberg-nessie-1.9.2.jar"
