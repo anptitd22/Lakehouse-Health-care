@@ -1,0 +1,40 @@
+spark_local:
+  target: session
+  outputs:
+    session:
+      type: spark
+      method: session
+      host: NA
+      schema: gold
+      catalog: local
+      connect_retries: 3
+      connect_timeout: 10
+      threads: 4
+      spark_conf:
+        spark.master: spark://spark-master:7077
+
+        spark.jars: >
+          /opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar,
+          /opt/spark/jars/iceberg-nessie-1.9.2.jar,
+          /opt/spark/jars/iceberg-aws-bundle-1.9.2.jar,
+          /opt/spark/jars/hadoop-aws-3.3.4.jar,
+          /opt/spark/jars/aws-java-sdk-bundle-1.12.787.jar,
+          /opt/spark/jars/ojdbc11.jar
+
+        spark.driver.extraClassPath: /opt/spark/jars/*
+        spark.executor.extraClassPath: /opt/spark/jars/*
+
+        spark.sql.catalog.local: org.apache.iceberg.spark.SparkCatalog
+        spark.sql.catalog.local.type: nessie
+        spark.sql.catalog.local.warehouse: s3a://lakehouse/warehouse
+        spark.sql.extensions: org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+        spark.sql.catalog.local.uri: http://nessie:19120/api/v1
+        spark.sql.defaultCatalog: local
+
+        spark.hadoop.fs.s3a.endpoint: http://minio:9000
+        spark.hadoop.fs.s3a.access.key: admin
+        spark.hadoop.fs.s3a.secret.key: admin12345
+        spark.hadoop.fs.s3a.path.style.access: "true"
+        spark.hadoop.fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+        spark.hadoop.fs.s3a.connection.ssl.enabled: "false"
+

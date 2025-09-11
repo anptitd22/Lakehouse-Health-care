@@ -1,0 +1,94 @@
+version: 2
+
+sources:
+  - name: silver
+    schema: silver
+    tables:
+      - name: appointment
+      - name: diseases
+      - name: doctors
+      - name: hospital_fee
+      - name: lab_results
+      - name: patient
+      - name: treatments
+      - name: vital_signs
+
+models:
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests: [not_null, unique]
+  - name: dim_patient
+    columns:
+      - name: patient_sk
+        tests: [not_null, unique]
+      - name: patient_nk
+        tests: [not_null]
+  - name: dim_doctor
+    columns:
+      - name: doctor_sk
+        tests: [not_null, unique]
+      - name: doctor_nk
+        tests: [not_null]
+  - name: dim_disease
+    columns:
+      - name: disease_sk
+        tests: [not_null, unique]
+      - name: disease_nk
+        tests: [not_null]
+  - name: dim_service
+    columns:
+      - name: service_sk
+        tests: [not_null, unique]
+      - name: service_nk
+        tests: [not_null]
+  - name: dim_test
+    columns:
+      - name: test_sk
+        tests: [not_null, unique]
+      - name: test_nk
+        tests: [not_null]
+  - name: dim_location
+    columns:
+      - name: location_sk
+        tests: [not_null, unique]
+      - name: location_nk
+        tests: [not_null]
+
+  - name: fact_appointments
+    columns:
+      - name: appointment_sk
+        tests: [not_null, unique]
+  - name: fact_billing
+    columns:
+      - name: fee_id
+        tests: [not_null, unique]
+  - name: fact_lab_results
+    columns:
+      - name: lab_result_id
+        tests: [not_null, unique]
+  - name: fact_treatments
+    columns:
+      - name: treatment_id
+        tests: [not_null, unique]
+  - name: fact_vitals
+    columns:
+      - name: vital_id
+        tests: [not_null, unique]
+
+  - name: dim_patient_scd2
+    columns:
+      - name: patient_sk
+        tests: [not_null]
+      - name: patient_nk
+        tests: [not_null]
+      - name: valid_from
+        tests: [not_null]
+  - name: dim_doctor_scd2
+    columns:
+      - name: doctor_sk
+        tests: [not_null]
+      - name: doctor_nk
+        tests: [not_null]
+      - name: valid_from
+        tests: [not_null]

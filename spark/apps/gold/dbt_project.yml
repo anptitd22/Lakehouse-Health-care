@@ -1,0 +1,30 @@
+name: healthcare_dwh_gold
+version: 1.0.0
+config-version: 2
+
+profile: spark_local
+
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+packages-install-path: "dbt_packages"
+
+on-run-start:
+  - "CREATE NAMESPACE IF NOT EXISTS local.gold"
+  - "CREATE NAMESPACE IF NOT EXISTS local.snapshots"
+  - "CREATE NAMESPACE IF NOT EXISTS local.silver"
+
+models:
+  healthcare_dwh_gold:
+    +materialized: table
+    gold_dbt:
+      +catalog: local
+      +file_format: iceberg
+
+snapshots:
+  +catalog: local
+  +schema: snapshots
+  +file_format: iceberg

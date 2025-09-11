@@ -1,0 +1,9 @@
+boto3
+botocore
+pyspark~=3.5.6
+apache-airflow~=3.0.2
+pandas~=2.2.3
+psycopg2-binary~=2.9.10
+pyodbc~=5.2.0
+python-dotenv~=1.1.0
+dbt-spark~=1.9.3
