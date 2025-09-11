@@ -1,23 +1,41 @@
-# Lakehouse Data Platform — README
-A lightweight, containerized data lakehouse for local development that stitches together MinIO (S3), Apache Iceberg with Project Nessie (Git for data), Apache Spark 3.5, Trino, and Airflow 3.0. It’s designed for ELT on Parquet files into Iceberg tables with versioned catalog metadata, queryable via Trino/Spark, and orchestrated by Airflow.
+# Lakehouse Health‑Care
 
-1) Architecture (high level)
+MinIO + Apache Iceberg (catalog Project Nessie) + Spark 3.5 + Trino 463 + Airflow 3.0 + dbt‑spark (method: **session**)
+
+> **TL;DR**: Dự án này triển khai một **data lakehouse** trên MinIO (S3‑compatible) với **Iceberg** làm table format, **Nessie** quản lý metadata/branching, **Spark** để ETL (Bronze→Silver), **dbt‑spark** (session) build **Gold**, và **Trino** để truy vấn/BI. Orchestration bằng **Airflow**.
+
+---
+
+## Kiến trúc tổng quan
+
+```
+[Source CSV/Parquet] \
+                    \
+                     > Airflow.upload_data  ->  MinIO  (bronze/*)
+                                                     |
+                                                     v
+                                      Spark ETL (apps/silver/*)
+                                                     |
+                                                     v
+                                       Iceberg tables (silver)
+                                                     |
+                                                     v
+                                   dbt‑spark (session) build Gold
+                                                     |
+                                                     v
+                               Trino / SparkSQL / BI tools (read Gold)
+```
+
+* **Bronze**: lưu trữ thô trên MinIO theo ngày nạp (`ingest_dt=YYYY-MM-DD`).
+* **Silver**: chuẩn hoá schema, làm sạch bằng Spark, materialize thành bảng **Iceberg**.
+* **Gold**: mô hình hoá phân tích (star/truy vấn nhanh) bằng **dbt‑spark** (incremental MERGE trên Iceberg v2).
+
+---
+## Ảnh tổng quan
 
 <img width="547" height="623" alt="image" src="https://github.com/user-attachments/assets/c15adf01-d2cf-4548-b465-b6659e27e1cc" />
 
-Key ideas:
-
-+ Storage: MinIO emulates S3. Buckets/paths like s3a://lakehouse/bronze/... and s3a://lakehouse/warehouse.
-
-+ Table format: Apache Iceberg (format v2).
-
-+ Catalog: Project Nessie (backed by Postgres) to version table metadata.
-
-+ Compute: Spark master + 2 workers (Bitnami images), plus Trino for interactive SQL.
-
-+ Orchestration: Airflow DAG runs PySpark jobs to move bronze → silver.
-
-2) Stack & Ports
+## Thành phần & cổng dịch vụ
 
 | Component          | Image / Version                                    | Port (host)   | Notes                             |
 | ------------------ | -------------------------------------------------- | ------------- | --------------------------------- |
@@ -29,133 +47,310 @@ Key ideas:
 | Trino              | `trinodb/trino:463`                                | `8088`        | Web UI & JDBC                     |
 | Airflow 3.0        | `apache/airflow:3.0.0`                             | `8080`        | Webserver/API                     |
 
-All containers join the same Docker network: lakehouse_network.
+> Lưu ý: Nếu chạy **2 Postgres** riêng rẽ, đảm bảo **khác cổng/volume** để tránh xung đột.
+> All containers join the same Docker network: lakehouse_network.
+---
 
-3) Folder layout (suggested)
+## Quickstart
 
-+ airflow - schedule (include private .env difficult .env in root) 
+### 1) Chuẩn bị
 
-+ data - minIO's data
+* Docker & Docker Compose
+* Python 3.10+ (để chạy dbt‑spark)
 
-+ dataset(self-created) - your input data
+### 2) Biến môi trường (`.env` ở root và airflow ví dụ)
 
-+ iceberg - snapshot
+```env
+# MinIO
+MINIO_ROOT_USER=admin
+MINIO_ROOT_PASSWORD=admin12345
 
-+ logs_build - save log 
+# Nessie (Postgres)
+POSTGRES_USER=nessie
+POSTGRES_PASSWORD=nessie
+POSTGRES_DB=nessie
+QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://postgres-nessie:5432/nessie
+QUARKUS_DATASOURCE_USERNAME=nessie
+QUARKUS_DATASOURCE_PASSWORD=nessie
+```
 
-+ spark - compute engine
+```env
+AIRFLOW_UID=50000
+POSTGRES_USER=airflow
+POSTGRES_PASSWORD=airflow
+POSTGRES_DB=airflow
+```
 
-+ tests - test data (bronze, silver, gold)
+### 3) Khởi chạy
 
-+ trino - setup with nessie
+```bash
+docker compose up -d
+```
 
-+ other (docker, requirements,env)
+Truy cập:
 
-4) Environment variables (.env sample)
+* MinIO Console: [http://localhost:9001](http://localhost:9001)
+* Trino UI: [http://localhost:8088](http://localhost:8088)
+* Spark UI: [http://localhost:18080](http://localhost:18080)
+* Airflow: [http://localhost:8080](http://localhost:8080)
+* Nessie REST: [http://localhost:19120/api/v2](http://localhost:19120/api/v2)
 
-+ one for airflow
+## Data layout (S3 paths)
 
-+ one for tech main
+* **Bronze**: `s3a://lakehouse/bronze/health_care_raw/ingest_dt=YYYY-MM-DD/*.csv|*.parquet`
+* **Warehouse (Iceberg)**: `s3a://lakehouse/warehouse/<namespace>/<table>`
 
-5) Querying data
+  * `silver.*`  (Spark viết)
+  * `gold.*`    (dbt‑spark viết)
 
-ex:
+---
 
-SHOW NAMESPACES IN local;
-SHOW TABLES IN local.silver;
+## Spark + Iceberg + Nessie (catalog `local`)
 
-SELECT * FROM local.silver.appointment LIMIT 10;
+```properties
+spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog
+spark.sql.catalog.local.type=rest
+spark.sql.catalog.local.uri=http://nessie:19120/api/v2
+spark.sql.catalog.local.ref=main
+spark.sql.catalog.local.warehouse=s3a://lakehouse/warehouse
+spark.sql.catalog.local.io-impl=org.apache.iceberg.aws.s3.S3FileIO
 
-6) Tuning & gotchas
+# MinIO S3A
+spark.hadoop.fs.s3a.endpoint=http://minio:9000
+spark.hadoop.fs.s3a.path.style.access=true
+spark.hadoop.fs.s3a.access.key={YOUR_ACCESS}
+spark.hadoop.fs.s3a.secret.key={YOUR_SECRET}
+```
 
-+ Nessie not reachable (ConnectException / UnresolvedAddress)
+---
 
-+ Ensure nessie container is running and on the same Docker network as Spark/Airflow/Trino.
+## Airflow
 
-+ If you set NESSIE_VERSION_STORE_PERSIST_JDBC_DATASOURCE, you must also set the named datasource env vars (QUARKUS_DATASOURCE__<NAME>__...). Easiest: remove that var and use the default datasource vars only.
+* `bronze_to_silver`→  nạp file local lên MinIO **bronze** (Boto3) → Spark apps đọc Bronze → chuẩn hoá → ghi **Iceberg silver**
+* `dwh_gold_dbt` → chạy `dbt debug/run/test` cho **gold**
+* `iceberg_mainenance_daily` → giảm nhẹ metadata
 
-+ AWS SDK v1 deprecation warnings
+Ví dụ lịch:
 
-+ Benign for local use. Ignore or upgrade Hadoop/AWS libs later.
+```
+0 0 * * *   # bronze_to_silver
+0 0 * * *   # dwh_gold_dbt
+0 1 * * *   # iceberg_mainenance_daily
+```
 
-+ OOM during Parquet write (e.g., ByteArrayOutputStream in Parquet compressor)
+---
 
-+ Avoid coalesce(1)—let Iceberg write multiple files.
+## dbt‑spark (method: session)
 
-Prefer moderate partitioning: df.repartition(4-12) based on cluster size & data volume.
+### `~/.dbt/profiles.yml`
 
-Tune writer:
+```yaml
+spark_local:
+  target: session
+  outputs:
+    session:
+      type: spark
+      method: session
+      host: NA
+      schema: gold
+      catalog: local
+      connect_retries: 3
+      connect_timeout: 10
+      threads: 4
+      spark_conf:
+        spark.master: spark://spark-master:7077
+```
 
-+ write.parquet.compression-codec=snappy
+### `dbt_project.yml`
 
-+ write.parquet.row-group-size-bytes=8MB
+```yaml
+models:
+  healthcare_dwh_gold:
+    +materialized: table
+    gold_dbt:
+      +catalog: local
+      +file_format: iceberg
 
-+ write.parquet.page-size-bytes=128KB
+snapshots:
+  +catalog: local
+  +schema: snapshots
+  +file_format: iceberg
+```
 
-+ Optionally write.target-file-size-bytes=128MB (Iceberg will split as needed).
+### Mẫu model Gold (incremental MERGE trên Iceberg v2)
 
-+ Ensure container/worker memory is sufficient (see Docker limits below).
+```sql
+-- models/gold/dim_diseases.sql
+{{ config(materialized='table') }}
 
-Docker resource limits
+WITH src AS (
+  SELECT * FROM {{ source('silver', 'diseases') }}
+)
+SELECT
+  abs(xxhash64(cast(disease_id as string)))                AS disease_sk,
+  disease_id                                               AS disease_nk,
+  first(disease_name, true)                                AS disease_name
+FROM src
+GROUP BY disease_id;
+```
 
-+ spark-master: mem_limit: "2g" (example)
+---
 
-+ spark-worker-*: mem_limit: "8g", set SPARK_WORKER_MEMORY=4g
+## Trino (đọc Iceberg)
 
-+ Align Spark job configs: spark.executor.memory, spark.executor.memoryOverhead, spark.driver.memory to fit inside container limits.
+`/etc/trino/catalog/iceberg.properties`:
 
-S3A + MinIO
+```
+connector.name=iceberg
+iceberg.catalog.type=nessie
+iceberg.nessie.uri=http://nessie:19120/api/v2
+iceberg.nessie.ref=main
+iceberg.file-format=PARQUET
+iceberg.s3.endpoint=http://minio:9000
+iceberg.s3.path-style-access=true
+s3.aws-access-key={YOUR_ACCESS}
+s3.aws-secret-key={YOUR_SECRET}
+```
 
-+ Must use path.style.access=true and non-SSL endpoint (http://minio:9000) unless you set up TLS.
+Ví dụ truy vấn:
 
-7) Development workflow
+```sql
+SHOW SCHEMAS FROM iceberg;
+SHOW TABLES FROM iceberg.gold;
+SELECT status, COUNT(*) FROM iceberg.gold.appointments_gold GROUP BY 1;
+```
 
-+ Drop new raw files under s3a://lakehouse/bronze/health_care_raw/ingest_dt=YYYY-MM-DD/...
+---
 
-+ Trigger Airflow DAG etl_pipeline (UI or CLI) to populate Iceberg silver tables.
+## Bảo trì Iceberg (maintenance)
 
-+ Explore data via Spark SQL or Trino.
+```sql
+-- Giảm số lượng file nhỏ
+CALL local.system.rewrite_data_files('gold.appointments_gold');
+CALL local.system.rewrite_delete_files('gold.appointments_gold');
 
-+ Use Nessie to manage branches/tags for safe schema/data evolution if desired.
+-- Dọn snapshot cũ (giữ 7 ngày)
+CALL local.system.expire_snapshots('gold.appointments_gold', TIMESTAMPADD('DAY', -7, CURRENT_TIMESTAMP));
 
-8) Troubleshooting checklist
+-- Xoá file mồ côi (tuỳ phiên bản)
+CALL local.system.remove_orphan_files('gold.appointments_gold', TIMESTAMPADD('DAY', -7, CURRENT_TIMESTAMP));
+```
 
-Nessie up?
-docker logs -f nessie and curl http://nessie:19120/api/v2/config from a container in the same network.
+---
 
-DNS inside Docker?
-docker exec -it <container> getent hosts nessie should return an IP.
+## Data Quality
 
-Permissions to MinIO?
-Confirm keys/endpoint match in Spark/Trino configs. Check MinIO Console (9001) for buckets & objects.
+* **dbt tests**: `unique`, `not_null`, `accepted_values`, `relationships`…
+* **Freshness**: `dbt source freshness` cho Silver.
+* (Tuỳ chọn) **Great Expectations/Deequ** gần Bronze/Silver hoặc trước khi MERGE vào Gold.
 
-Iceberg table not found from Spark
-Ensure you fully qualify names: local.silver.appointment. Run SHOW NAMESPACES IN local; SHOW TABLES IN local.silver;.
+Ví dụ `schema.yml`:
 
-Airflow logs show [TABLE_OR_VIEW_NOT_FOUND] local.silver.diseases.diseases
-Use writeTo("local.silver.diseases") (table name once, not suffixed). Create namespace first.
+```yaml
+models:
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests: [not_null, unique]
+  - name: dim_patient
+    columns:
+      - name: patient_sk
+        tests: [not_null, unique]
+      - name: patient_nk
+        tests: [not_null]
+  - name: dim_doctor
+    columns:
+      - name: doctor_sk
+        tests: [not_null, unique]
+      - name: doctor_nk
+        tests: [not_null]
+  - name: dim_disease
+    columns:
+      - name: disease_sk
+        tests: [not_null, unique]
+      - name: disease_nk
+        tests: [not_null]
+```
 
-9) Security notes
+---
 
-Credentials in this README are placeholders. For real usage, use secrets management and TLS for MinIO/Nessie.
+## Cấu trúc thư mục dự án
 
-Nessie logs warn if AuthN/AuthZ is disabled. That’s fine for local dev; enable it for shared environments.
+```
+.
+├─ airflow/
+│  
+├─ dataset/
+│  
+├─ spark/
+│   
+├─ trino/
+│  
+├─ iceberg/ 
+│  
+├─ docker/
+│  └─ compose.yaml
+│  
+└─ README.md
+```
 
-10) Future extensions
+---
 
-Add Kafka + schema registry for streaming bronze ( có cc tại ah Đạt bảo dell cần lắm )
+## FAQ
 
-Enable Iceberg row-level deletes or CDC.
+**Iceberg có phải database không?** Không. Iceberg là **table format** (quản lý file/manifest/metadata) cho data lake. Metadata được quản lý bởi **Nessie** (branching, versioned catalog) lưu trong **Postgres**.
 
-Use Nessie branches per feature for safe schema evolution & backfills.
+**DWH nằm ở đâu?** Dữ liệu vật lý (Parquet) nằm trên **MinIO**. Schema/metadata nằm trong Iceberg+Nessie. Truy vấn qua **Trino** hoặc **SparkSQL**.
 
-Wire BI tools to Trino (JDBC).
+**Khi nào dùng Trino vs Spark?**
 
-11) License / Ownership
+* **Trino**: truy vấn ad‑hoc/BI, low‑latency, federation.
+* **Spark**: ETL, batch nặng, write‑heavy, ML.
 
-This repository is intended for local development and education. Adapt to your organization’s standards before production use.
+**Lỗi `hash_partition_count` trong Trino?** Thuộc tính đó **không phải** session property hợp lệ trong bản triển khai hiện tại. Dùng partitioning/sort order ở **table level** (Iceberg) hoặc điều chỉnh tính song song qua cấu hình engine.
 
-12) Result
+**Hai Postgres bị trùng cổng?** Đổi cổng (ví dụ 5432/5433) hoặc gộp vào một service (xem kỹ volume & network).
+
+**S3A bị lỗi path‑style/creds?** Đảm bảo:
+
+* `fs.s3a.path.style.access=true`
+* `endpoint=http://minio:9000`
+* Access/secret key trùng với MinIO.
+
+**Thiếu jar S3 trên Spark?** Cần `hadoop-aws` + `aws-java-sdk-bundle` phù hợp bản Hadoop.
+
+---
+
+## Lộ trình mở rộng
+
+* Thêm **Kafka** + Schema Registry (ingest streaming) → Silver bằng Spark Structured Streaming. (a Đạt bảo dell hiệu quả nên có cc =)  
+* **Great Expectations** kiểm thử dữ liệu tự động trước khi nhập Gold.
+* **BI**: Kết nối Superset/Metabase vào Trino (schema `gold`).
+* **Perf**: Optimize sort order, clustering, Z‑order (tuỳ engine), compaction lịch tuần.
+
+---
+
+## License & Đóng góp
+
+* (Tuỳ chọn) MIT / Apache‑2.0
+* PR/Issue: đặt tiêu đề rõ ràng, đính kèm log, nêu bước tái hiện.
+
+---
+
+## Lệnh nhanh (cheat‑sheet)
+
+```bash
+# run project main
+~/coder/projects/package_github/Health_Care_Linux$ docker compose build -no--cache
+~/coder/projects/package_github/Health_Care_Linux$ docker compose up -d
+
+#run airflow
+~/coder/projects/package_github/Health_Care_Linux/airflow$ docker compose build -no--cache
+~/coder/projects/package_github/Health_Care_Linux/airflow$ docker compose up -d
+```
+
+## Result (Lười chụp vai lz)
 
 - Airflow:
 
@@ -176,26 +371,3 @@ This repository is intended for local development and education. Adapt to your o
 - nessie
 
 <img width="1704" height="687" alt="image" src="https://github.com/user-attachments/assets/b1c88d50-4afc-4d3f-9109-9a1b8bd7045c" />
-
-13) Continuous ... (data warehouse)
-
-# Set up (linux)
-
-Step 1:
-
-+ create .env in folder airflow
-+ create .env in folder root
-
-Step 2:
-
-Run both two terminal in project:
-
-~/coder/projects/package_github/Health_Care_Linux$:
-
-+ docker compose build -no--cache
-+ docker compose up -d
-
-~/coder/projects/package_github/Health_Care_Linux/airflow: 
-
-+ docker compose build -no--cache
-+ docker compose up -d
