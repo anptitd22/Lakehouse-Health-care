@@ -14,6 +14,3 @@ metastore_db/
 note
 data/
 install/
-/data/.minio.sys/
-/data/lakehouse/
-/data/warehouse/
