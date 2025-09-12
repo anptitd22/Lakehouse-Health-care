@@ -18,19 +18,6 @@ TABLE = "appointment"
 # logger = logging.getLogger(__name__)
 
 def appointments_bronze_to_silver():
-    # APPOINTMENT_SCHEMA = StructType([
-    #     StructField("appointment_id", IntegerType()),
-    #     StructField("patient_id", IntegerType()),
-    #     StructField("doctor_id", IntegerType()),
-    #     StructField("appointment_date", StringType()),
-    #     StructField("start_time", StringType()),
-    #     StructField("end_time", StringType()),
-    #     StructField("reason", StringType()),
-    #     StructField("status", StringType()),
-    #     StructField("phone", StringType()),
-    #     StructField("email", StringType()),
-    #     StructField("appointment_type", StringType()),
-    # ])
 
     try:
         spark = get_spark()

@@ -101,9 +101,11 @@ POSTGRES_DB=airflow
 
 ```bash
 # main project
+~/coder/projects/package_github/Health_Care_Linux$ docker compose build --no-cache 
 ~/coder/projects/package_github/Health_Care_Linux$ docker compose up -d 
 
 # airflow
+~/coder/projects/package_github/Health_Care_Linux/airflow$ docker compose build --no-cache
 ~/coder/projects/package_github/Health_Care_Linux/airflow$ docker compose up -d
 ```
 
@@ -299,6 +301,7 @@ models:
         tests: [not_null, unique]
       - name: disease_nk
         tests: [not_null]
+...
 ```
 
 ---
@@ -352,7 +355,7 @@ models:
 
 ## Lộ trình mở rộng
 
-* Thêm **Kafka** + Schema Registry (ingest streaming) → Silver bằng Spark Structured Streaming. (a Đạt bảo dell hiệu quả lắm nên có cc =)  
+* Thêm **Kafka** + Schema Registry (ingest streaming) → Silver bằng Spark Structured Streaming. 
 * **Great Expectations** kiểm thử dữ liệu tự động trước khi nhập Gold.
 * **BI**: Kết nối Superset/Metabase vào Trino (schema `gold`).
 * **Perf**: Optimize sort order, clustering, Z‑order (tuỳ engine), compaction lịch tuần.
@@ -366,19 +369,7 @@ models:
 
 ---
 
-## Lệnh nhanh (cheat‑sheet)
-
-```bash
-# run project main
-~/coder/projects/package_github/Health_Care_Linux$ docker compose build -no--cache
-~/coder/projects/package_github/Health_Care_Linux$ docker compose up -d
-
-#run airflow
-~/coder/projects/package_github/Health_Care_Linux/airflow$ docker compose build -no--cache
-~/coder/projects/package_github/Health_Care_Linux/airflow$ docker compose up -d
-```
-
-## Result (Lười chụp vai lz update gold sau)
+## Result (update gold later)
 
 - Airflow:
 
