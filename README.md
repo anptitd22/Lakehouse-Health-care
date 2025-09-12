@@ -373,8 +373,6 @@ models:
 
 - Airflow:
 
-<img width="1352" height="945" alt="Screenshot from 2025-09-07 15-43-06" src="https://github.com/user-attachments/assets/68b62023-776c-4bb9-a709-3c8047ed9401" />
-
 <img width="1798" height="852" alt="Screenshot from 2025-09-12 09-29-53" src="https://github.com/user-attachments/assets/ec47c038-167c-40cb-810c-1badca634c18" />
 
 <img width="1798" height="967" alt="Screenshot from 2025-09-12 09-39-18" src="https://github.com/user-attachments/assets/c51a47b7-85d0-41d4-8a1a-6c0c2737158a" />
